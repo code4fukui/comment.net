@@ -1,14 +1,20 @@
 import { CSV } from "https://js.sabae.cc/CSV.js";
 import { DateTime } from "https://js.sabae.cc/DateTime.js";
+import { ArrayUtil } from "https://js.sabae.cc/ArrayUtil.js";
 
-const txt0 = await Deno.readTextFile("./get.json");
+if (Deno.args.length == 0) {
+  console.log("makecommentscsv [key]");
+  Deno.exit();
+}
+const key = Deno.args[0];
+const url = `http://sabae.club/commgate/1/get.json?cid=sharetext2-${key}&callback=_cb_989264`;
+//const txt0 = await Deno.readTextFile("./get.json");
+const txt0 = await (await fetch(url)).text();
 const txt = txt0.substring(txt0.indexOf("(") + 1, txt0.length - 4) + "}";
-//console.log(txt);
 const data = JSON.parse(txt);
 
 const comments = [];
 
-//console.log(data);
 for (const user in data) {
   const comment0 = decodeURIComponent(data[user].data);
   const comment1 = comment0.split("\t");
@@ -23,7 +29,9 @@ for (const user in data) {
   //console.log(id, ts, comment);
 }
 const errs = comments.filter(i => isNaN(parseInt(i.ts)));
-await Deno.writeTextFile("comments_err.csv", CSV.stringify(errs));
+if (errs.length > 0) {
+  await Deno.writeTextFile("comments_err.csv", CSV.stringify(errs));
+}
 
 const cms = comments.filter(i => !isNaN(i.ts));
 
@@ -42,5 +50,6 @@ cms.forEach(i => {
   } catch (e) {
   }
 });
-
 await Deno.writeTextFile("comments.csv", CSV.stringify(cms));
+
+console.log("comments:", cms.length, "users:", ArrayUtil.toUnique(cms.map(i => i.user)).length, "errs:", errs.length);
