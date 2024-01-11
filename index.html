@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<!-- (c)taisukef CC BY  http://fukuno.jig.jp/ -->
+<html>
+<head>
+<meta charset='utf-8'/>
+<title>コメント.net</title>
+<meta property="og:image" content="http://コメント.net/ss3.png">
+<link rel="apple-touch-icon" href="http://コメント.net/ss3.png"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, target-densitydpi=medium-dpi">
+<meta name="format-detection" content="telephone=no">
+<script src="lib/fukuno.js"></script>
+<script src="lib/commgate.js"></script>
+<script>"use strict";
+
+var comm;
+
+var start = function(id) {
+	get("tf").disabled = false;
+	get("funcpcview").onclick = function() {
+		document.location.href = "pcview.html#" + id;
+	};
+	get("funccopy").onclick = function() {
+		var list = [];
+		var cs = get("main").childNodes;
+		/*
+		for (var i = 0; i < cs.length; i++) {
+			if (cs[i].childNodes.length > 0) {
+				var s = cs[i].childNodes[0].textContent;
+				list.push(s);
+			}
+		}
+		*/
+		// 発言順
+		for (var i = cs.length - 1; i >= 0; i--) {
+			if (cs[i].childNodes.length > 0) {
+				var s = cs[i].childNodes[0].textContent;
+				list.push(s);
+			}
+		}
+		prompt("コメント.net/#" + id, list.join("\n"));
+	};
+
+	//
+	comm = new Commgate("sharetext2-" + id);
+	
+//	comm.clear();
+	
+	var delay = 3 * 1000; // 3秒更新（リアルタイム）
+	var delay2 = 60 * 1000; // 1分更新
+	var cntrealtimeinit = 2 * 60 * 60 * 1000 / delay; // 2時間はリアルタイム更新
+	var cntrealtime = cntrealtimeinit;
+	var ar = null;
+	var update = function() {
+		comm.get(function(data) {
+//			dump(data);
+			
+			ar = [];
+			for (var id in data) {
+				var s = data[id];
+				var ss = s.data.split("\t");
+				for (var i = 0; i < ss.length; i += 2) {
+					var parent = null;
+					var st = ss[i];
+					var n = st.indexOf("/");
+					if (n >= 0) {
+						parent = parseInt(st.substring(n + 1));
+					}
+					ar.push({ t: parseInt(st), d: ss[i + 1], parent: parent });
+				}
+			}
+			ar.sort(function(a, b) {
+				return a.t - b.t;
+			});
+//			dump(ar);
+			
+			var s = "";
+			var enc = function(s) {
+				if (s == null)
+					return "";
+				s = s.replace(/</g, "&lt;");
+				s = s.replace(/>/g, "&gt;");
+				return s;
+			}
+			for (var i = ar.length - 1; i >= 0; i--) {
+				if (ar[i].parent)
+					continue;
+				s += "<div class=com id=com" + i + ">" + (i + 1) + ". " + enc(ar[i].d);
+				var rep = "rep" + (i + 1);
+				s += "<span class=reply id=" + rep + ">[返信]</span>";
+				s += "</div>";
+			}
+			get("main").innerHTML = s;
+			for (var i = ar.length - 1; i >= 0; i--) {
+				if (!ar[i].parent)
+					continue;
+				var pid = 0;
+				for (var j = 0; j < ar.length; j++) {
+					if (parseInt(ar[i].parent) == parseInt(ar[j].t)) {
+						pid = j + 1;
+						break;
+					}
+				}
+				if (!pid) {
+//					alert("err");
+					continue;
+				}
+				var s = (i + 1) + ". " + enc(ar[i].d);
+				var rep = "rep" + (i + 1);
+				s += "<span class=reply id=" + rep + ">[返信]</span>";
+				var div = create("div");
+				div.id = "com" + i;
+				div.pid = pid;
+				div.className = "com";
+				div.innerHTML = s;
+				div.style.marginLeft = "2em";
+				var divp = get("com" + (pid - 1));
+				if (divp)
+					divp.parentNode.insertBefore(div, divp.nextSibling);
+			}
+			for (var i = ar.length - 1; i >= 0; i--) {
+				var rep = "rep" + (i + 1);
+				var repd = get(rep);
+				if (!repd)
+					continue;
+				repd.onclick = function() {
+					var rid = this.parentNode.pid;
+//					alert(rid);
+					if (!rid)
+						rid = this.id.substring(3) ;
+					get("tf").value = " > " + rid + ". ";
+					//alert(this.id);
+				};
+			}
+		});
+		cntrealtime--;
+		setTimeout(update, cntrealtime > 0 ? delay : delay2);
+	};
+	update();
+	
+	var posts = [];
+	var post = function() {
+		var s = get("tf").value;
+		if (s.length > 0) {
+			var repid = s.match(/^.*> (\d+)\..*$/);
+			
+			var t = new Date().getTime();
+			if (repid && ar) {
+				s = s.replace(/> \d+\./, "");
+				t += "/" + ar[parseInt(repid[1]) - 1].t;
+			}
+			posts.push(t);
+			s = s.replace(/\t/g, " ");
+			s = s.replace(/\"/g, "”");
+			posts.push(s);
+			comm.post(posts.join("\t"));
+			cntrealtime = cntrealtimeinit;
+			get("tf").value = "";
+			
+			get("main").innerHTML = "<div class=com>(送信中...) " + s + "</div>" + get("main").innerHTML;
+		}
+	};
+	get("btn").onclick = post;
+	/*
+	get("tf").onkeyup = function(e) {
+		if (e.keyCode == 13)
+			post();
+	};
+	*/
+	// http://xn--tckzb0d6c.net/#test
+	var img = create("img");
+	img.src = getQRCode(document.location);
+	get("share").appendChild(img);
+};
+
+window.onload = function() {
+	get("roomenter").onclick = function() {
+		var hash = roomid.value;
+		const chk = "%E8%AC%9B%E6%BC%94%E3%83%97%E3%83%AC%E3%82%BC%E3%83%B3%E3%81%AE%E3%82%B3%E3%83%A1%E3%83%B3%E3%83%88%E3%81%AB%EF%BC%81";
+		if (encodeURIComponent(pw.value) != chk) {
+			alert("部屋の作成にはパスコードが必要です。コメント.net管理者にお問い合わせください。");
+			return;
+		}
+		if (!hash.startsWith("#")) {
+			hash = "#" + hash;
+		}
+		document.location.hash = hash;
+		start(hash.substring(1));
+	};
+			
+	var id = "";
+//	id="test"; // for test
+	if (document.location.hash.length > 1) {
+		id = document.location.hash.substring(1);
+	}
+	if (id.length == 0) {
+		get("tf").disabled = true;
+	} else {
+		start(id);
+	}
+};
+
+var getQRCode = function(s) {
+	var w = 260;
+	var url = "http://chart.apis.google.com/chart?chs=" + w + "x" + w + "&cht=qr&chl=" + encodeURIComponent(s);
+	return url;
+};
+
+
+</script>
+<style>
+body {
+	margin: 0px;
+	box-sizing: border-box; /* width include border */
+	-webkit-text-size-adjust: none; /* for iPhone */
+}
+.head {
+	display: block;
+	width: 100%;
+	position: fixed;
+	height: 60px;
+	padding: 10px;
+	background-color: rgba(60,155,235,.8);
+}
+.head h1 {
+	font-size: 20px;
+	margin: 0px;
+	color: white;
+}
+.head #tf {
+	margin: 0px;
+	width: 70%;
+}
+.reply {
+	font-size: 70%;
+	color: gray;
+	padding-left: .5em;
+}
+#main {
+	padding: 85px 3px 0px 15px;
+}
+a {
+	color: gray !important;
+}
+#credit {
+	font-size: 90%;
+	margin: 10px 0 0 0;
+	padding: 10px;
+	color: gray;
+	background-color: #f1f1f1;
+	display: block;
+}
+#title {
+	font-size: 150%;
+}
+#roomid {
+	margin: 4px;
+}
+button {
+	margin-bottom: 10px;
+}
+@media screen and (min-width: 440px) {
+}
+
+.subfunc {
+	margin: 0px 0px 0px 10px;
+	font-size: 80%;
+}
+.subfunc > span {
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+.pr {
+	margin-top: 12px;
+}
+</style>
+</head>
+<body>
+
+<div class="head">
+<h1>コメント.net</h1>
+<input type=text id=tf placeholder="コメントをどうぞ！"><button id=btn>送信</button>
+</div>
+
+<div id="main">
+手元のパソコンやスマホから、匿名で自由にコメントができるアプリです。<br>
+コメントは投稿された順番に表示され、会議やイベントの参加者みんなで共有できます。<br>
+<br>
+ルーム#<input type=text id=roomid> <input type=text placeholder=部屋作成パスコード id=pw> <button id=roomenter>はいる</button><br>
+<br>
+使い方：<br>
+お好きな半角英数字でルーム名を入力して、「はいる」ボタンを押してください。<br>
+コメントが投稿できる専用ルームが新しく作成され、ページの一番下にQRコードが表示されます。<br>
+スクリーンなどに投影する場合は、文字サイズなどが調整された投影用ビューページを活用してください。<br>
+</div>
+
+<div id='credit'>
+<a href="http://コメント.net">コメント.net</a><span class=subfunc>(<span id=funcpcview>投影用ビュー</span>、<span id=funccopy>全文テキストコピー</span>)</span><br>
+<a href='http://fukuno.jig.jp/1368'>CC BY fukuno.jig.jp 一日一創</a><br>
+Co-produced by <a href=http://wakashin.com/>wakashin.com</a><br>
+<div class=pr>
+[PR]<br>
+<a href=https://whowatch.tv/ target=_blank>みんなのライブ配信 - ふわっち</a><br>
+<a href=https://ichigojam.net/ target=_blank>はじめてのプログラミングパソコン - こどもパソコン IchigoJam</a><br>
+</div>
+</div>
+
+<div id="share"></div>
+
+</body>
+</html>
