@@ -1,5 +1,7 @@
 # comment.net
 
+> 日本語のREADMEはこちらです: [README.ja.md](README.ja.md)
+
 comment.net is an open-source anonymous comment platform that allows users to post comments and share them in real-time.
 
 ## Demo
