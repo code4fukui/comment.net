@@ -22,4 +22,4 @@ comment.net is an open-source anonymous comment platform that allows users to po
 5. Use the "Projection View" and "Copy All Comments" links to access additional features.
 
 ## License
-This project is licensed under the MIT License.
+MIT License — see [LICENSE](LICENSE).
